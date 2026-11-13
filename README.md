@@ -22,20 +22,25 @@ Animazoo motion has no stated licence and is for local use only. Before anything
 replace these clips with CMU clips (from the LIB_MOCAP iGame3D/FreeBVH sets, which need
 credit) or with our own captures.
 
-## Episodes
+## Foundations
 
-| Episode | Engine | File | State |
+PROMPT_GLAZE is the whole game. It will grow and get complicated. Each foundational game
+we build elsewhere stays small and can be taught as a tutorial in its own engine demo
+suite, and each one is also part of this whole: a skill, a level or a scene the heroes go
+through.
+
+| Foundational game | Where | Teaches | In PROMPT_GLAZE |
 |---|---|---|---|
-| Companions (card `Play.Companions`, formerly Heroes): third-person companions in a 1-bit generated vector maze; both reach the gold beacon | Vibecode3D | `vibecode3d/Vibecode3D_Play_Companions.livecodescript` | playable |
+| Amazing Couple (`Play.Amazing_Couple`, formerly Heroes / Companions) | `LIB_GAMES/Vibecode3D_Games/Vibecode3D_Play_Amazing_Couple.livecodescript`: Vibecode3D, and the xt3d games bench | Third-person companions: mocap stick figures, a follower using path finding, TAB to swap, a 1-bit generated maze | The heroes, their walk and follow, the maze |
 
-Planned: skills that do something (GLAZE barters, charms and influences; PROMPT forces
-through), each episode carried over to xt3d, and the heroes visiting the other game
-concepts.
+Next: give the skills something to do (GLAZE barters, charms and influences; PROMPT
+forces through), then bring in the other foundational games (Antack, Thrmnlra, Canyon,
+Hunter, GAD and more).
 
 ## Layout
 
-- `vibecode3d/`: card scripts for the Vibecode3D stack. Paste one into a card the way
-  LIB_GAMES describes ("Putting a game into the stack").
+- PROMPT_GLAZE's own code (the parts that join the foundations together) goes here as it
+  is written. The foundational games stay in LIB_GAMES.
 - Shared code stays in the libraries. This project only uses it:
   `../LIB_BIT` (Bit.Maze), `../LIB_MAP` (paths, edges) and `../LIB_MOCAP/library`
   (clips). Scripts find these with FindFile, which looks in the folders above the stack
@@ -43,8 +48,8 @@ concepts.
 
 ## History
 
-Started on the LIB_GAMES `prompt-glaze` branch and moved here on 2026-11-12, with its
-commits.
+Started on the LIB_GAMES `prompt-glaze` branch and moved here on 2026-11-12. That same day the
+demo went back to LIB_GAMES as Amazing Couple; this repo keeps the early history.
 
 Git: main holds what has been reviewed; each new episode gets its own branch and is
 merged after review.
