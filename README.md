@@ -26,7 +26,7 @@ credit) or with our own captures.
 
 | Episode | Engine | File | State |
 |---|---|---|---|
-| The Maze: a 1-bit generated vector maze where both heroes reach the gold beacon | Vibecode3D | `vibecode3d/Vibecode3D_Play_Heroes.livecodescript` | playable |
+| Companions (card `Play.Companions`, formerly Heroes): third-person companions in a 1-bit generated vector maze; both reach the gold beacon | Vibecode3D | `vibecode3d/Vibecode3D_Play_Companions.livecodescript` | playable |
 
 Planned: skills that do something (GLAZE barters, charms and influences; PROMPT forces
 through), each episode carried over to xt3d, and the heroes visiting the other game

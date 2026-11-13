@@ -1,5 +1,5 @@
 ######################################################################################
-## CARD SCRIPT: "Play.Heroes"   PROMPT & GLAZE  (11 12 2026)
+## CARD SCRIPT: "Play.Companions"   PROMPT & GLAZE, third-person companions  (11 12 2026)
 ## Third person in a vector maze. PROMPT (cyan) and GLAZE (magenta) are minimal stick
 ## figures driven by LIB_MOCAP clips. You play one; the other follows you through the
 ## maze on its own (LIB_MAP path finding). TAB swaps who you play. Bring both to the
@@ -37,7 +37,7 @@ constant kGlazeColor = "#FF60D0"
 
 local sStepMS = 33, sTicks = 0
 local sGrid, sCols, sRows, sLeft, sTop, sSeed
-local sClip          -- [clip name][frames|fps|travel]; meshes "Heroes.<clip>.<n>"
+local sClip          -- [clip name][frames|fps|travel]; meshes "Companions.<clip>.<n>"
 local sHero          -- [PROMPT|GLAZE][key|x|z|yaw|anim|frame|speed|color|path|pathTo|skills|walk|idle|run]
 local sActive        -- "PROMPT" or "GLAZE"
 local sKeyWas, sTestKeys, sError
@@ -57,13 +57,13 @@ on Game.OnStart
    put empty into sError
    put empty into sTestKeys
    put 1 into sSeed
-   Heroes.LoadLibraries
-   if sError is empty then Heroes.LoadClips
+   Companions.LoadLibraries
+   if sError is empty then Companions.LoadClips
    if sError is not empty then
-      HUD.Set "Heroes.Err", sError, gViewLeft + 20, gViewTop + 20, 14
+      HUD.Set "Companions.Err", sError, gViewLeft + 20, gViewTop + 20, 14
       exit Game.OnStart
    end if
-   Heroes.NewMaze
+   Companions.NewMaze
 end Game.OnStart
 
 on Game.OnUpdate
@@ -71,16 +71,16 @@ on Game.OnUpdate
    add 1 to sTicks
    if sNextMazeAt is not empty and sTicks >= sNextMazeAt then
       add 1 to sSeed
-      Heroes.NewMaze
+      Companions.NewMaze
       exit Game.OnUpdate
    end if
-   Heroes.Controls
-   Heroes.Follow
-   Heroes.Animate "PROMPT"
-   Heroes.Animate "GLAZE"
-   Heroes.Camera false
-   Heroes.CheckExit
-   Heroes.ShowHUD
+   Companions.Controls
+   Companions.Follow
+   Companions.Animate "PROMPT"
+   Companions.Animate "GLAZE"
+   Companions.Camera false
+   Companions.CheckExit
+   Companions.ShowHUD
 end Game.OnUpdate
 
 on Game.OnClick pX,pY,pButton
@@ -104,36 +104,36 @@ end Collision.Hit
 
 -------------------------------------------------------------------- loading
 
-on Heroes.LoadLibraries
+on Companions.LoadLibraries
    local tLib, tName
    repeat for each item tName in "LIB_BIT/livecode/lib_bit.livecodescript,LIB_MAP/livecode/lib_map.livecodescript"
-      put Heroes.FindFile(tName) into tLib
+      put Companions.FindFile(tName) into tLib
       if tLib is empty then
-         put "HEROES: NOT FOUND " & toUpper(tName) into sError
-         exit Heroes.LoadLibraries
+         put "COMPANIONS: NOT FOUND " & toUpper(tName) into sError
+         exit Companions.LoadLibraries
       end if
       start using stack tLib
    end repeat
-end Heroes.LoadLibraries
+end Companions.LoadLibraries
 
 -- walk and idle stick clips from LIB_MOCAP; one engine mesh per frame
 -- every clip the heroes use, from LIB_MOCAP; one engine mesh per frame
-on Heroes.LoadClips
+on Companions.LoadClips
    local tName, tFile
    put empty into sClip
    repeat for each item tName in kPromptWalk & comma & kPromptIdle & comma & kGlazeWalk & comma & kGlazeIdle & comma & kRun
       if sClip[tName]["frames"] is a number then next repeat
-      put Heroes.FindFile("LIB_MOCAP/library/" & tName & "/" & tName & "_stick.txt") into tFile
+      put Companions.FindFile("LIB_MOCAP/library/" & tName & "/" & tName & "_stick.txt") into tFile
       if tFile is empty then
-         put "HEROES: NO CLIP " & toUpper(tName) & " IN LIB_MOCAP/LIBRARY" into sError
-         exit Heroes.LoadClips
+         put "COMPANIONS: NO CLIP " & toUpper(tName) & " IN LIB_MOCAP/LIBRARY" into sError
+         exit Companions.LoadClips
       end if
-      Heroes.LoadClip tName, URL ("file:" & tFile)
+      Companions.LoadClip tName, URL ("file:" & tFile)
    end repeat
-end Heroes.LoadClips
+end Companions.LoadClips
 
 -- a stick clip: only its cycle when it has one (walks, runs), else up to kMaxIdleFrames
-on Heroes.LoadClip pName, pText
+on Companions.LoadClip pName, pText
    local tLine, tEdges, tFrame, tKept, tM, tV, i, tJoints, tE, tA, tB, tFrom, tTo
    put 0 into tFrame
    put 0 into tKept
@@ -180,18 +180,18 @@ on Heroes.LoadClip pName, pText
                   set the itemDel to comma
                   Mesh.AddLine tM, tA, tB
                end repeat
-               Mesh.Define "Heroes." & pName & "." & tKept, tM
+               Mesh.Define "Companions." & pName & "." & tKept, tM
             end if
       end switch
    end repeat
    put tKept into sClip[pName]["frames"]
    if sClip[pName]["fps"] is not a number then put 30 into sClip[pName]["fps"]
    if sClip[pName]["travel"] is not a number then put 0 into sClip[pName]["travel"]
-end Heroes.LoadClip
+end Companions.LoadClip
 
 -------------------------------------------------------------------- the maze
 
-on Heroes.NewMaze
+on Companions.NewMaze
    local tSegs, tName, tC, tR
    Scene.ClearAll
    HUD.Clear
@@ -202,81 +202,81 @@ on Heroes.NewMaze
    put the number of lines of sGrid into sRows
    put -sCols * kCell / 2 into sLeft
    put sRows * kCell / 2 into sTop
-   Mesh.Define "Heroes.Walls", Heroes.SegmentsToMesh(Map.BlockEdges(sGrid, kCell, kWallH, false))
-   Mesh.Define "Heroes.Floor", Heroes.SegmentsToMesh(Map.BlockEdges(Bit.Blank(sCols, sRows), kCell, 0, true))
-   get Entity.Spawn("Heroes.Floor", 0, 0, 0, "#1F4A5A")
-   get Entity.Spawn("Heroes.Walls", 0, 0, 0, "#7FA8FF")
+   Mesh.Define "Companions.Walls", Companions.SegmentsToMesh(Map.BlockEdges(sGrid, kCell, kWallH, false))
+   Mesh.Define "Companions.Floor", Companions.SegmentsToMesh(Map.BlockEdges(Bit.Blank(sCols, sRows), kCell, 0, true))
+   get Entity.Spawn("Companions.Floor", 0, 0, 0, "#1F4A5A")
+   get Entity.Spawn("Companions.Walls", 0, 0, 0, "#7FA8FF")
    -- the beacon: far corner room
    put (2 * kRooms) & comma & (2 * kRooms) into sExitCell
-   Mesh.Define "Heroes.Beacon", Heroes.BeaconMesh()
-   put Entity.Spawn("Heroes.Beacon", Heroes.CellX(2 * kRooms), 0, Heroes.CellZ(2 * kRooms), "#FFD040") into sBeacon
+   Mesh.Define "Companions.Beacon", Companions.BeaconMesh()
+   put Entity.Spawn("Companions.Beacon", Companions.CellX(2 * kRooms), 0, Companions.CellZ(2 * kRooms), "#FFD040") into sBeacon
    SetObjectRotationSpeed sBeacon, 0, 0.05, 0
    -- the heroes, side by side in the first room, facing down the first corridor
-   Heroes.Spawn "PROMPT", kPromptColor, Heroes.CellX(2) - 12, Heroes.CellZ(2)
-   Heroes.Spawn "GLAZE", kGlazeColor, Heroes.CellX(2) + 12, Heroes.CellZ(2) - 20
+   Companions.Spawn "PROMPT", kPromptColor, Companions.CellX(2) - 12, Companions.CellZ(2)
+   Companions.Spawn "GLAZE", kGlazeColor, Companions.CellX(2) + 12, Companions.CellZ(2) - 20
    put "PROMPT" into sActive
-   put Heroes.FirstHeading() into sHero["PROMPT"]["yaw"]
+   put Companions.FirstHeading() into sHero["PROMPT"]["yaw"]
    put sHero["PROMPT"]["yaw"] into sHero["GLAZE"]["yaw"]
-   Heroes.Camera true
-end Heroes.NewMaze
+   Companions.Camera true
+end Companions.NewMaze
 
 -- facing the open neighbour of the first room
-function Heroes.FirstHeading
-   if Heroes.Open(3, 2) then return pi / 2       -- east (+X)
+function Companions.FirstHeading
+   if Companions.Open(3, 2) then return pi / 2       -- east (+X)
    return 0                                       -- south (+Z)
-end Heroes.FirstHeading
+end Companions.FirstHeading
 
-function Heroes.CellX pCol
+function Companions.CellX pCol
    return sLeft + (pCol - 0.5) * kCell
-end Heroes.CellX
+end Companions.CellX
 
-function Heroes.CellZ pRow
+function Companions.CellZ pRow
    return -sTop + (pRow - 0.5) * kCell
-end Heroes.CellZ
+end Companions.CellZ
 
-function Heroes.CellAt pX, pZ
+function Companions.CellAt pX, pZ
    return (trunc((pX - sLeft) / kCell) + 1) & comma & (trunc((pZ + sTop) / kCell) + 1)
-end Heroes.CellAt
+end Companions.CellAt
 
-function Heroes.Open pCol, pRow
+function Companions.Open pCol, pRow
    if pCol < 1 or pRow < 1 or pCol > sCols or pRow > sRows then return false
    return char pCol of line pRow of sGrid is "0"
-end Heroes.Open
+end Companions.Open
 
 -- a hero (a circle of radius 12) fits at x,z
-function Heroes.Fits pX, pZ
+function Companions.Fits pX, pZ
    local dx, dz, tCell
    repeat for each item dx in "-12,12"
       repeat for each item dz in "-12,12"
-         put Heroes.CellAt(pX + dx, pZ + dz) into tCell
-         if not Heroes.Open(item 1 of tCell, item 2 of tCell) then return false
+         put Companions.CellAt(pX + dx, pZ + dz) into tCell
+         if not Companions.Open(item 1 of tCell, item 2 of tCell) then return false
       end repeat
    end repeat
    return true
-end Heroes.Fits
+end Companions.Fits
 
 -- move a hero by dx,dz, sliding along walls; returns the distance moved
-function Heroes.TryMove pName, pDX, pDZ
+function Companions.TryMove pName, pDX, pDZ
    local tX, tZ, tMoved
    put sHero[pName]["x"] into tX
    put sHero[pName]["z"] into tZ
-   if Heroes.Fits(tX + pDX, tZ + pDZ) then
+   if Companions.Fits(tX + pDX, tZ + pDZ) then
       add pDX to tX
       add pDZ to tZ
-   else if Heroes.Fits(tX + pDX, tZ) then
+   else if Companions.Fits(tX + pDX, tZ) then
       add pDX to tX
-   else if Heroes.Fits(tX, tZ + pDZ) then
+   else if Companions.Fits(tX, tZ + pDZ) then
       add pDZ to tZ
    end if
    put sqrt((tX - sHero[pName]["x"]) ^ 2 + (tZ - sHero[pName]["z"]) ^ 2) into tMoved
    put tX into sHero[pName]["x"]
    put tZ into sHero[pName]["z"]
    return tMoved
-end Heroes.TryMove
+end Companions.TryMove
 
 -------------------------------------------------------------------- heroes
 
-on Heroes.Spawn pName, pColor, pX, pZ
+on Companions.Spawn pName, pColor, pX, pZ
    if pName is "PROMPT" then
       put kPromptWalk into sHero[pName]["walk"]
       put kPromptIdle into sHero[pName]["idle"]
@@ -287,7 +287,7 @@ on Heroes.Spawn pName, pColor, pX, pZ
       put "BARTER 9  CHARM 9  INFLUENCE 9" into sHero[pName]["skills"]
    end if
    put kRun into sHero[pName]["run"]
-   put Entity.Spawn("Heroes." & sHero[pName]["idle"] & ".1", pX, 0, pZ, pColor) into sHero[pName]["key"]
+   put Entity.Spawn("Companions." & sHero[pName]["idle"] & ".1", pX, 0, pZ, pColor) into sHero[pName]["key"]
    put pX into sHero[pName]["x"]
    put pZ into sHero[pName]["z"]
    put 0 into sHero[pName]["yaw"]
@@ -296,21 +296,21 @@ on Heroes.Spawn pName, pColor, pX, pZ
    put 0 into sHero[pName]["speed"]
    put pColor into sHero[pName]["color"]
    put empty into sHero[pName]["path"]
-end Heroes.Spawn
+end Companions.Spawn
 
 -- the walking speed the clip's feet were made for, in engine units a step
 -- how far a hero's clip moves in one step, engine units (pWhich: walk or run)
-function Heroes.WalkStep pName, pWhich
+function Companions.WalkStep pName, pWhich
    if pWhich is empty then put "walk" into pWhich
    return sClip[sHero[pName][pWhich]]["travel"] * kM * sStepMS / 1000
-end Heroes.WalkStep
+end Companions.WalkStep
 
-on Heroes.Controls
+on Companions.Controls
    local tKeys, tF, tTurn, tName, tDX, tDZ, tStep
-   put Heroes.Keys() into tKeys
+   put Companions.Keys() into tKeys
    -- TAB, once per press
    if 65289 is among the items of tKeys or 9 is among the items of tKeys then
-      if sKeyWas["tab"] is not true then Heroes.Switch
+      if sKeyWas["tab"] is not true then Companions.Switch
       put true into sKeyWas["tab"]
    else
       put false into sKeyWas["tab"]
@@ -325,17 +325,17 @@ on Heroes.Controls
    add tTurn to sHero[tName]["yaw"]
    -- Shift runs (forward only)
    if tF > 0 and (65505 is among the items of tKeys or 65506 is among the items of tKeys) then
-      put Heroes.WalkStep(tName, "run") * tF into tStep
+      put Companions.WalkStep(tName, "run") * tF into tStep
    else
-      put Heroes.WalkStep(tName, "walk") * tF into tStep
+      put Companions.WalkStep(tName, "walk") * tF into tStep
    end if
    put sin(sHero[tName]["yaw"]) * tStep into tDX
    put cos(sHero[tName]["yaw"]) * tStep into tDZ
-   put Heroes.TryMove(tName, tDX, tDZ) into sHero[tName]["speed"]
+   put Companions.TryMove(tName, tDX, tDZ) into sHero[tName]["speed"]
    if tF < 0 then put -sHero[tName]["speed"] into sHero[tName]["speed"]
-end Heroes.Controls
+end Companions.Controls
 
-on Heroes.Switch
+on Companions.Switch
    if sActive is "PROMPT" then
       put "GLAZE" into sActive
    else
@@ -344,11 +344,11 @@ on Heroes.Switch
    put empty into sHero["PROMPT"]["path"]
    put empty into sHero["GLAZE"]["path"]
    put sTicks + 45 into sMsgUntil
-end Heroes.Switch
+end Companions.Switch
 
 -- the hero you are not playing walks after the one you are: along a LIB_MAP path when
 -- it is more than a room away, straight at you when close
-on Heroes.Follow
+on Companions.Follow
    local tMe, tLead, dx, dz, tDist, tMyCell, tLeadCell, tNext, tTX, tTZ, tStep, tMoved
    if sActive is "PROMPT" then
       put "GLAZE" into tMe
@@ -361,13 +361,13 @@ on Heroes.Follow
    put sqrt(dx * dx + dz * dz) into tDist
    if tDist <= kGap then
       put 0 into sHero[tMe]["speed"]
-      exit Heroes.Follow
+      exit Companions.Follow
    end if
-   put Heroes.CellAt(sHero[tMe]["x"], sHero[tMe]["z"]) into tMyCell
-   put Heroes.CellAt(sHero[tLead]["x"], sHero[tLead]["z"]) into tLeadCell
+   put Companions.CellAt(sHero[tMe]["x"], sHero[tMe]["z"]) into tMyCell
+   put Companions.CellAt(sHero[tLead]["x"], sHero[tLead]["z"]) into tLeadCell
    put sHero[tLead]["x"] into tTX
    put sHero[tLead]["z"] into tTZ
-   if tMyCell is not tLeadCell and not Heroes.Neighbours(tMyCell, tLeadCell) then
+   if tMyCell is not tLeadCell and not Companions.Neighbours(tMyCell, tLeadCell) then
       if sHero[tMe]["pathTo"] is not tLeadCell or tMyCell is not among the lines of sHero[tMe]["path"] then
          put Map.FindPath(sGrid, tMyCell, tLeadCell, false) into sHero[tMe]["path"]
          put tLeadCell into sHero[tMe]["pathTo"]
@@ -375,31 +375,31 @@ on Heroes.Follow
       put lineOffset(tMyCell, sHero[tMe]["path"]) into tNext
       if tNext > 0 and tNext < the number of lines of sHero[tMe]["path"] then
          put line tNext + 1 of sHero[tMe]["path"] into tNext
-         put Heroes.CellX(item 1 of tNext) into tTX
-         put Heroes.CellZ(item 2 of tNext) into tTZ
+         put Companions.CellX(item 1 of tNext) into tTX
+         put Companions.CellZ(item 2 of tNext) into tTZ
       end if
       put tTX - sHero[tMe]["x"] into dx
       put tTZ - sHero[tMe]["z"] into dz
       put sqrt(dx * dx + dz * dz) into tDist
    end if
-   if tDist < 0.01 then exit Heroes.Follow
+   if tDist < 0.01 then exit Companions.Follow
    -- walking, a little faster than the leader walks; running when more than two rooms behind
    if sqrt((sHero[tLead]["x"] - sHero[tMe]["x"]) ^ 2 + (sHero[tLead]["z"] - sHero[tMe]["z"]) ^ 2) > 2 * kCell then
-      put Heroes.WalkStep(tMe, "run") into tStep
+      put Companions.WalkStep(tMe, "run") into tStep
    else
-      put max(Heroes.WalkStep(tMe, "walk"), Heroes.WalkStep(tLead, "walk") * 1.1) into tStep
+      put max(Companions.WalkStep(tMe, "walk"), Companions.WalkStep(tLead, "walk") * 1.1) into tStep
    end if
    put min(tStep, tDist) into tStep
-   put Heroes.TryMove(tMe, dx / tDist * tStep, dz / tDist * tStep) into tMoved
+   put Companions.TryMove(tMe, dx / tDist * tStep, dz / tDist * tStep) into tMoved
    put tMoved into sHero[tMe]["speed"]
-   if tMoved > 0.1 then put Heroes.TurnToward(sHero[tMe]["yaw"], atan2(dx, dz), 0.25) into sHero[tMe]["yaw"]
-end Heroes.Follow
+   if tMoved > 0.1 then put Companions.TurnToward(sHero[tMe]["yaw"], atan2(dx, dz), 0.25) into sHero[tMe]["yaw"]
+end Companions.Follow
 
-function Heroes.Neighbours pA, pB
+function Companions.Neighbours pA, pB
    return abs(item 1 of pA - item 1 of pB) + abs(item 2 of pA - item 2 of pB) is 1
-end Heroes.Neighbours
+end Companions.Neighbours
 
-function Heroes.TurnToward pFrom, pTo, pRate
+function Companions.TurnToward pFrom, pTo, pRate
    local d
    put pTo - pFrom into d
    repeat while d > pi
@@ -409,17 +409,17 @@ function Heroes.TurnToward pFrom, pTo, pRate
       add 2 * pi to d
    end repeat
    return pFrom + d * pRate
-end Heroes.TurnToward
+end Companions.TurnToward
 
 -- walking plays the walk clip at the speed the hero really moves (no skating);
 -- standing plays the idle clip
 -- standing: the hero's idle clip. Moving: walk or run, whichever was made for the speed
 -- the hero really moves, played at that speed so the feet don't skate
-on Heroes.Animate pName
+on Companions.Animate pName
    local tSpeed, tWhich, tClip, tN, tKey, tE, tWalk, tRun
    put abs(sHero[pName]["speed"]) into tSpeed
-   put Heroes.WalkStep(pName, "walk") into tWalk
-   put Heroes.WalkStep(pName, "run") into tRun
+   put Companions.WalkStep(pName, "walk") into tWalk
+   put Companions.WalkStep(pName, "run") into tRun
    if tSpeed <= 0.2 then
       put "idle" into tWhich
    else if tSpeed > (tWalk + tRun) / 2 then
@@ -436,7 +436,7 @@ on Heroes.Animate pName
    if tWhich is "idle" then
       add sClip[tClip]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
    else
-      add sHero[pName]["speed"] / Heroes.WalkStep(pName, tWhich) * sClip[tClip]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
+      add sHero[pName]["speed"] / Companions.WalkStep(pName, tWhich) * sClip[tClip]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
    end if
    repeat while sHero[pName]["frame"] >= tN + 1
       subtract tN from sHero[pName]["frame"]
@@ -445,16 +445,16 @@ on Heroes.Animate pName
       add tN to sHero[pName]["frame"]
    end repeat
    put sHero[pName]["key"] into tKey
-   Heroes.SetMesh tKey, "Heroes." & tClip & "." & trunc(sHero[pName]["frame"])
+   Companions.SetMesh tKey, "Companions." & tClip & "." & trunc(sHero[pName]["frame"])
    SetObjectPosition tKey, sHero[pName]["x"], 0, sHero[pName]["z"]
-   put Heroes.Euler(sHero[pName]["yaw"], 0) into tE
+   put Companions.Euler(sHero[pName]["yaw"], 0) into tE
    SetObjectRotation tKey, item 1 of tE, item 2 of tE, item 3 of tE
-end Heroes.Animate
+end Companions.Animate
 
 -------------------------------------------------------------------- camera, beacon, HUD
 
 -- behind and above the hero you play, looking at its chest; pSnap jumps there at once
-on Heroes.Camera pSnap
+on Companions.Camera pSnap
    local tH, tX, tZ, tCX, tCY, tCZ, tK, tLY
    put sHero[sActive]["yaw"] into tH
    put sHero[sActive]["x"] into tX
@@ -476,64 +476,64 @@ on Heroes.Camera pSnap
    put atan2(tX - sCamX, tZ - sCamZ) into gCameraYaw
    put -atan2(tLY - sCamY, sqrt((tX - sCamX) ^ 2 + (tZ - sCamZ) ^ 2)) into gCameraPitch
    Engine.SetCam -sCamX, -sCamY, -sCamZ
-end Heroes.Camera
+end Companions.Camera
 
-on Heroes.CheckExit
+on Companions.CheckExit
    local tA, tB
-   if sNextMazeAt is not empty then exit Heroes.CheckExit
-   put Heroes.CellAt(sHero["PROMPT"]["x"], sHero["PROMPT"]["z"]) into tA
-   put Heroes.CellAt(sHero["GLAZE"]["x"], sHero["GLAZE"]["z"]) into tB
+   if sNextMazeAt is not empty then exit Companions.CheckExit
+   put Companions.CellAt(sHero["PROMPT"]["x"], sHero["PROMPT"]["z"]) into tA
+   put Companions.CellAt(sHero["GLAZE"]["x"], sHero["GLAZE"]["z"]) into tB
    if tA is sExitCell and tB is sExitCell then
       put sTicks + round(2500 / sStepMS) into sNextMazeAt
-      HUD.Set "Heroes.Msg", "MAZE CLEARED  NEW MAZE COMING", gViewLeft + 20, gViewTop + 130, 18
+      HUD.Set "Companions.Msg", "MAZE CLEARED  NEW MAZE COMING", gViewLeft + 20, gViewTop + 130, 18
    end if
-end Heroes.CheckExit
+end Companions.CheckExit
 
-on Heroes.ShowHUD
+on Companions.ShowHUD
    local tOther
    if sActive is "PROMPT" then
       put "GLAZE" into tOther
    else
       put "PROMPT" into tOther
    end if
-   HUD.Set "Heroes.Who", "PLAYING " & sActive & "   (TAB: " & tOther & ")", gViewLeft + 20, gViewBottom - 78, 14
-   HUD.Set "Heroes.Skills", sHero[sActive]["skills"], gViewLeft + 20, gViewBottom - 56, 11
-   HUD.Set "Heroes.Help", "W S WALK   SHIFT RUN   A D TURN   FIND THE GOLD BEACON", gViewLeft + 20, gViewBottom - 30, 11
+   HUD.Set "Companions.Who", "PLAYING " & sActive & "   (TAB: " & tOther & ")", gViewLeft + 20, gViewBottom - 78, 14
+   HUD.Set "Companions.Skills", sHero[sActive]["skills"], gViewLeft + 20, gViewBottom - 56, 11
+   HUD.Set "Companions.Help", "W S WALK   SHIFT RUN   A D TURN   FIND THE GOLD BEACON", gViewLeft + 20, gViewBottom - 30, 11
    if sMsgUntil is a number and sTicks < sMsgUntil then
-      HUD.Set "Heroes.Swap", sActive, gViewLeft + 20, gViewTop + 130, 24
+      HUD.Set "Companions.Swap", sActive, gViewLeft + 20, gViewTop + 130, 24
    else
-      HUD.Remove "Heroes.Swap"
+      HUD.Remove "Companions.Swap"
    end if
-end Heroes.ShowHUD
+end Companions.ShowHUD
 
 -------------------------------------------------------------------- helpers
 
--- the keys held down; Heroes.TestKeys lets a test drive the game without a keyboard
-function Heroes.Keys
+-- the keys held down; Companions.TestKeys lets a test drive the game without a keyboard
+function Companions.Keys
    if sTestKeys is not empty then return sTestKeys
    return the keysDown
-end Heroes.Keys
+end Companions.Keys
 
-on Heroes.TestKeys pKeys
+on Companions.TestKeys pKeys
    put pKeys into sTestKeys
-end Heroes.TestKeys
+end Companions.TestKeys
 
 -- tests: put the hero you play in room-grid cell pCol,pRow
-on Heroes.TestPlace pCol, pRow
-   put Heroes.CellX(pCol) into sHero[sActive]["x"]
-   put Heroes.CellZ(pRow) into sHero[sActive]["z"]
-end Heroes.TestPlace
+on Companions.TestPlace pCol, pRow
+   put Companions.CellX(pCol) into sHero[sActive]["x"]
+   put Companions.CellZ(pRow) into sHero[sActive]["z"]
+end Companions.TestPlace
 
-function Heroes.State
+function Companions.State
    return sActive & "|" & round(sHero["PROMPT"]["x"]) & "," & round(sHero["PROMPT"]["z"]) & "|" & \
          round(sHero["GLAZE"]["x"]) & "," & round(sHero["GLAZE"]["z"]) & "|" & sHero["PROMPT"]["anim"] & "," & sHero["GLAZE"]["anim"] & \
-         "|" & Heroes.CellAt(sHero["PROMPT"]["x"], sHero["PROMPT"]["z"]) & ";" & Heroes.CellAt(sHero["GLAZE"]["x"], sHero["GLAZE"]["z"])
-end Heroes.State
+         "|" & Companions.CellAt(sHero["PROMPT"]["x"], sHero["PROMPT"]["z"]) & ";" & Companions.CellAt(sHero["GLAZE"]["x"], sHero["GLAZE"]["z"])
+end Companions.State
 
 -- swap the mesh an object is drawn with (from Antack)
-on Heroes.SetMesh pKey, pMesh
+on Companions.SetMesh pKey, pMesh
    local tOut, tLine
-   if gObjectTransforms[pKey]["mesh"] is pMesh then exit Heroes.SetMesh
+   if gObjectTransforms[pKey]["mesh"] is pMesh then exit Companions.SetMesh
    repeat for each line tLine in gSceneObjects
       if word 2 of tLine is pKey then put pMesh into word 1 of tLine
       put tLine & cr after tOut
@@ -541,34 +541,34 @@ on Heroes.SetMesh pKey, pMesh
    delete the last char of tOut
    put tOut into gSceneObjects
    put pMesh into gObjectTransforms[pKey]["mesh"]
-end Heroes.SetMesh
+end Companions.SetMesh
 
 -- engine rotation angles for a heading (from Antack.Euler; up is -Y)
-function Heroes.Euler pYaw, pPitch
+function Companions.Euler pYaw, pPitch
    local sy, cy, sp, cp
    put sin(pYaw) into sy
    put cos(pYaw) into cy
    put sin(pPitch) into sp
    put cos(pPitch) into cp
    return atan2(sp, cy * cp) & comma & asin(max(-1, min(1, sy * cp))) & comma & atan2(-sy * sp, cy)
-end Heroes.Euler
+end Companions.Euler
 
 -- LIB_MAP segments (x1,y1,z1,x2,y2,z2; the picture's y runs north, z is height) as an
 -- engine wire mesh: x stays, height goes up (-Y), north goes away (-Z)
-function Heroes.SegmentsToMesh pSegments
+function Companions.SegmentsToMesh pSegments
    local tMesh, tSeg, tIndex, tA, tB
    put Mesh.New() into tMesh
    set the itemDel to comma
    repeat for each line tSeg in pSegments
       if the number of items of tSeg < 6 then next repeat
-      put Heroes.Vertex(tMesh, tIndex, item 1 of tSeg, item 2 of tSeg, item 3 of tSeg) into tA
-      put Heroes.Vertex(tMesh, tIndex, item 4 of tSeg, item 5 of tSeg, item 6 of tSeg) into tB
+      put Companions.Vertex(tMesh, tIndex, item 1 of tSeg, item 2 of tSeg, item 3 of tSeg) into tA
+      put Companions.Vertex(tMesh, tIndex, item 4 of tSeg, item 5 of tSeg, item 6 of tSeg) into tB
       Mesh.AddLine tMesh, tA, tB
    end repeat
    return tMesh
-end Heroes.SegmentsToMesh
+end Companions.SegmentsToMesh
 
-function Heroes.Vertex @pMesh, @pIndex, pX, pY, pZ
+function Companions.Vertex @pMesh, @pIndex, pX, pY, pZ
    local tKey
    put pX & "," & pY & "," & pZ into tKey
    if pIndex[tKey] is empty then
@@ -576,10 +576,10 @@ function Heroes.Vertex @pMesh, @pIndex, pX, pY, pZ
       put the result into pIndex[tKey]
    end if
    return pIndex[tKey]
-end Heroes.Vertex
+end Companions.Vertex
 
 -- a gold diamond standing on the floor
-function Heroes.BeaconMesh
+function Companions.BeaconMesh
    local tM, tTop, tBot, tA, tB, tC, tD
    put Mesh.New() into tM
    Mesh.AddVertex tM, 0, -64, 0
@@ -603,10 +603,10 @@ function Heroes.BeaconMesh
       Mesh.AddLine tM, tBot, tB
    end repeat
    return tM
-end Heroes.BeaconMesh
+end Companions.BeaconMesh
 
 -- looks for pRelPath in the folders above this stack, then in the WSL projects folder
-function Heroes.FindFile pRelPath
+function Companions.FindFile pRelPath
    local tPath, tTry
    put the effective filename of this stack into tPath
    set the itemDel to "/"
@@ -619,4 +619,4 @@ function Heroes.FindFile pRelPath
    put "//wsl$/Ubuntu/home/igame3d/projects/" & pRelPath into tTry
    if there is a file tTry then return tTry
    return empty
-end Heroes.FindFile
+end Companions.FindFile
