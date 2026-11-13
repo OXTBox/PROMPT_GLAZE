@@ -449,7 +449,7 @@ on Heroes.CheckExit
    put Heroes.CellAt(sHero["GLAZE"]["x"], sHero["GLAZE"]["z"]) into tB
    if tA is sExitCell and tB is sExitCell then
       put sTicks + round(2500 / sStepMS) into sNextMazeAt
-      HUD.Set "Heroes.Msg", "MAZE CLEARED  NEW MAZE COMING", gViewLeft + 20, gViewTop + 80, 18
+      HUD.Set "Heroes.Msg", "MAZE CLEARED  NEW MAZE COMING", gViewLeft + 20, gViewTop + 130, 18
    end if
 end Heroes.CheckExit
 
@@ -460,11 +460,11 @@ on Heroes.ShowHUD
    else
       put "PROMPT" into tOther
    end if
-   HUD.Set "Heroes.Who", "PLAYING " & sActive & "   (TAB: " & tOther & ")", gViewLeft + 20, gViewTop + 20, 14
-   HUD.Set "Heroes.Skills", sHero[sActive]["skills"], gViewLeft + 20, gViewTop + 42, 11
+   HUD.Set "Heroes.Who", "PLAYING " & sActive & "   (TAB: " & tOther & ")", gViewLeft + 20, gViewBottom - 78, 14
+   HUD.Set "Heroes.Skills", sHero[sActive]["skills"], gViewLeft + 20, gViewBottom - 56, 11
    HUD.Set "Heroes.Help", "W S WALK   SHIFT HURRY   A D TURN   FIND THE GOLD BEACON", gViewLeft + 20, gViewBottom - 30, 11
    if sMsgUntil is a number and sTicks < sMsgUntil then
-      HUD.Set "Heroes.Swap", sActive, gViewLeft + 20, gViewTop + 80, 24
+      HUD.Set "Heroes.Swap", sActive, gViewLeft + 20, gViewTop + 130, 24
    else
       HUD.Remove "Heroes.Swap"
    end if
