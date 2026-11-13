@@ -3,12 +3,13 @@
 ## Third person in a vector maze. PROMPT (cyan) and GLAZE (magenta) are minimal stick
 ## figures driven by LIB_MOCAP clips. You play one; the other follows you through the
 ## maze on its own (LIB_MAP path finding). TAB swaps who you play. Bring both to the
-## gold beacon in the far corner and a new maze is built.
-## CONTROLS  W / up arrow  walk        S / down arrow  step back     Shift  hurry
+## gold beacon in the far corner and a new maze is built. Each hero has its own captured
+## walk and idle (LIB_MOCAP library); Shift runs (a captured jog).
+## CONTROLS  W / up arrow  walk        S / down arrow  step back     Shift  run
 ##           A D / left right arrows   turn                TAB  switch hero
 ## SKILLS    PROMPT gets the job done no matter what; GLAZE: barter, charm, influence.
 ##           Shown on screen, not used yet.
-## NEEDS     ../LIB_BIT, ../LIB_MAP and ../LIB_MOCAP/library (proc_walk and an idle clip).
+## NEEDS     ../LIB_BIT, ../LIB_MAP and ../LIB_MOCAP/library (the clips named below).
 ######################################################################################
 
 global gObjectTransforms, gSceneObjects
@@ -17,21 +18,27 @@ global gViewLeft, gViewTop, gViewRight, gViewBottom
 global bPaused, bPlaying
 
 constant kM = 30              -- engine units a metre: the heroes are about 48 tall
-constant kCell = 64           -- maze cell, engine units (about 2 m corridors)
-constant kWallH = 44          -- wall height
+constant kCell = 76           -- maze cell, engine units (about 2.5 m corridors)
+constant kWallH = 58          -- wall height (the heroes are about 52 tall)
 constant kRooms = 6           -- maze size in rooms (the grid is 2 * kRooms + 1 square)
 constant kTurn = 0.06         -- radians a step
 constant kGap = 46            -- the follower stops this far behind
 constant kCamBack = 105       -- camera distance behind the hero
-constant kCamUp = 70          -- camera height
-constant kIdleClip = "Video_To_Mocap_Example_1"
+constant kCamUp = 88          -- camera height
+-- LIB_MOCAP clips (library/<name>/<name>_stick.txt); walks and runs loop their "cycle"
+constant kPromptWalk = "Animazoo_gangster_walk"
+constant kPromptIdle = "Animazoo_hands_on_hips"
+constant kGlazeWalk = "Animazoo_walking_waving"
+constant kGlazeIdle = "Animazoo_talking_gesturing"
+constant kRun = "Animazoo_Running_-_Jog"
+constant kMaxIdleFrames = 300   -- longer idles are cut to their first 10 seconds
 constant kPromptColor = "#40E0FF"
 constant kGlazeColor = "#FF60D0"
 
 local sStepMS = 33, sTicks = 0
 local sGrid, sCols, sRows, sLeft, sTop, sSeed
-local sClip          -- [walk|idle][frames|fps|travel]
-local sHero          -- [PROMPT|GLAZE][key|x|z|yaw|anim|frame|color|path|pathTo|skills]
+local sClip          -- [clip name][frames|fps|travel]; meshes "Heroes.<clip>.<n>"
+local sHero          -- [PROMPT|GLAZE][key|x|z|yaw|anim|frame|speed|color|path|pathTo|skills|walk|idle|run]
 local sActive        -- "PROMPT" or "GLAZE"
 local sKeyWas, sTestKeys, sError
 local sCamX, sCamY, sCamZ, sBeacon, sExitCell, sNextMazeAt, sMsgUntil
@@ -110,35 +117,44 @@ on Heroes.LoadLibraries
 end Heroes.LoadLibraries
 
 -- walk and idle stick clips from LIB_MOCAP; one engine mesh per frame
+-- every clip the heroes use, from LIB_MOCAP; one engine mesh per frame
 on Heroes.LoadClips
-   local tWhich, tFile
+   local tName, tFile
    put empty into sClip
-   repeat for each item tWhich in "walk,idle"
-      if tWhich is "walk" then
-         put Heroes.FindFile("LIB_MOCAP/library/proc_walk/proc_walk_stick.txt") into tFile
-      else
-         put Heroes.FindFile("LIB_MOCAP/library/" & kIdleClip & "/" & kIdleClip & "_stick.txt") into tFile
-      end if
+   repeat for each item tName in kPromptWalk & comma & kPromptIdle & comma & kGlazeWalk & comma & kGlazeIdle & comma & kRun
+      if sClip[tName]["frames"] is a number then next repeat
+      put Heroes.FindFile("LIB_MOCAP/library/" & tName & "/" & tName & "_stick.txt") into tFile
       if tFile is empty then
-         put "HEROES: NO " & toUpper(tWhich) & " CLIP IN LIB_MOCAP/LIBRARY" into sError
+         put "HEROES: NO CLIP " & toUpper(tName) & " IN LIB_MOCAP/LIBRARY" into sError
          exit Heroes.LoadClips
       end if
-      Heroes.LoadClip tWhich, URL ("file:" & tFile)
+      Heroes.LoadClip tName, URL ("file:" & tFile)
    end repeat
 end Heroes.LoadClips
 
-on Heroes.LoadClip pWhich, pText
-   local tLine, tEdges, tFrames, tM, tV, i, tJoints, tE, tA, tB
-   put 0 into tFrames
+-- a stick clip: only its cycle when it has one (walks, runs), else up to kMaxIdleFrames
+on Heroes.LoadClip pName, pText
+   local tLine, tEdges, tFrame, tKept, tM, tV, i, tJoints, tE, tA, tB, tFrom, tTo
+   put 0 into tFrame
+   put 0 into tKept
+   put 1 into tFrom
+   put kMaxIdleFrames into tTo
    repeat for each line tLine in pText
       if tLine is empty or char 1 of tLine is "#" then next repeat
       set the itemDel to comma
       switch item 1 of tLine
          case "fps"
-            put item 2 of tLine into sClip[pWhich]["fps"]
+            put item 2 of tLine into sClip[pName]["fps"]
             break
          case "travel"
-            put item 2 of tLine into sClip[pWhich]["travel"]
+            if sClip[pName]["travel"] is empty then put item 2 of tLine into sClip[pName]["travel"]
+            break
+         case "cycle"
+            put item 2 of tLine into tFrom
+            put item 3 of tLine into tTo
+            break
+         case "cycle_travel"
+            put item 2 of tLine into sClip[pName]["travel"]
             break
          case "joints"
             put item 2 of tLine into tJoints
@@ -148,7 +164,9 @@ on Heroes.LoadClip pWhich, pText
             break
          default
             if char 1 of tLine is "-" or char 1 of tLine is a number then
-               add 1 to tFrames
+               add 1 to tFrame
+               if tFrame < tFrom or tFrame > tTo then next repeat
+               add 1 to tKept
                put tLine into tV
                split tV by comma
                put Mesh.New() into tM
@@ -162,12 +180,13 @@ on Heroes.LoadClip pWhich, pText
                   set the itemDel to comma
                   Mesh.AddLine tM, tA, tB
                end repeat
-               Mesh.Define "Heroes." & pWhich & tFrames, tM
+               Mesh.Define "Heroes." & pName & "." & tKept, tM
             end if
       end switch
    end repeat
-   put tFrames into sClip[pWhich]["frames"]
-   if sClip[pWhich]["fps"] is not a number then put 30 into sClip[pWhich]["fps"]
+   put tKept into sClip[pName]["frames"]
+   if sClip[pName]["fps"] is not a number then put 30 into sClip[pName]["fps"]
+   if sClip[pName]["travel"] is not a number then put 0 into sClip[pName]["travel"]
 end Heroes.LoadClip
 
 -------------------------------------------------------------------- the maze
@@ -258,25 +277,32 @@ end Heroes.TryMove
 -------------------------------------------------------------------- heroes
 
 on Heroes.Spawn pName, pColor, pX, pZ
-   put Entity.Spawn("Heroes.idle1", pX, 0, pZ, pColor) into sHero[pName]["key"]
+   if pName is "PROMPT" then
+      put kPromptWalk into sHero[pName]["walk"]
+      put kPromptIdle into sHero[pName]["idle"]
+      put "GETS THE JOB DONE NO MATTER WHAT" into sHero[pName]["skills"]
+   else
+      put kGlazeWalk into sHero[pName]["walk"]
+      put kGlazeIdle into sHero[pName]["idle"]
+      put "BARTER 9  CHARM 9  INFLUENCE 9" into sHero[pName]["skills"]
+   end if
+   put kRun into sHero[pName]["run"]
+   put Entity.Spawn("Heroes." & sHero[pName]["idle"] & ".1", pX, 0, pZ, pColor) into sHero[pName]["key"]
    put pX into sHero[pName]["x"]
    put pZ into sHero[pName]["z"]
    put 0 into sHero[pName]["yaw"]
    put "idle" into sHero[pName]["anim"]
-   put random(sClip["idle"]["frames"]) into sHero[pName]["frame"]
+   put random(sClip[sHero[pName]["idle"]]["frames"]) into sHero[pName]["frame"]
    put 0 into sHero[pName]["speed"]
    put pColor into sHero[pName]["color"]
    put empty into sHero[pName]["path"]
-   if pName is "PROMPT" then
-      put "GETS THE JOB DONE NO MATTER WHAT" into sHero[pName]["skills"]
-   else
-      put "BARTER 9  CHARM 9  INFLUENCE 9" into sHero[pName]["skills"]
-   end if
 end Heroes.Spawn
 
 -- the walking speed the clip's feet were made for, in engine units a step
-function Heroes.WalkStep
-   return sClip["walk"]["travel"] * kM * sStepMS / 1000
+-- how far a hero's clip moves in one step, engine units (pWhich: walk or run)
+function Heroes.WalkStep pName, pWhich
+   if pWhich is empty then put "walk" into pWhich
+   return sClip[sHero[pName][pWhich]]["travel"] * kM * sStepMS / 1000
 end Heroes.WalkStep
 
 on Heroes.Controls
@@ -297,9 +323,12 @@ on Heroes.Controls
    if 97 is among the items of tKeys or 65 is among the items of tKeys or 65361 is among the items of tKeys then subtract kTurn from tTurn
    if 100 is among the items of tKeys or 68 is among the items of tKeys or 65363 is among the items of tKeys then add kTurn to tTurn
    add tTurn to sHero[tName]["yaw"]
-   -- Shift: hurry (the walk clip plays faster too, so the feet still match the ground)
-   if 65505 is among the items of tKeys or 65506 is among the items of tKeys then put tF * 1.8 into tF
-   put Heroes.WalkStep() * tF into tStep
+   -- Shift runs (forward only)
+   if tF > 0 and (65505 is among the items of tKeys or 65506 is among the items of tKeys) then
+      put Heroes.WalkStep(tName, "run") * tF into tStep
+   else
+      put Heroes.WalkStep(tName, "walk") * tF into tStep
+   end if
    put sin(sHero[tName]["yaw"]) * tStep into tDX
    put cos(sHero[tName]["yaw"]) * tStep into tDZ
    put Heroes.TryMove(tName, tDX, tDZ) into sHero[tName]["speed"]
@@ -354,11 +383,11 @@ on Heroes.Follow
       put sqrt(dx * dx + dz * dz) into tDist
    end if
    if tDist < 0.01 then exit Heroes.Follow
-   -- a little faster than walking, and hurrying when more than two rooms behind
+   -- walking, a little faster than the leader walks; running when more than two rooms behind
    if sqrt((sHero[tLead]["x"] - sHero[tMe]["x"]) ^ 2 + (sHero[tLead]["z"] - sHero[tMe]["z"]) ^ 2) > 2 * kCell then
-      put Heroes.WalkStep() * 1.9 into tStep
+      put Heroes.WalkStep(tMe, "run") into tStep
    else
-      put Heroes.WalkStep() * 1.15 into tStep
+      put max(Heroes.WalkStep(tMe, "walk"), Heroes.WalkStep(tLead, "walk") * 1.1) into tStep
    end if
    put min(tStep, tDist) into tStep
    put Heroes.TryMove(tMe, dx / tDist * tStep, dz / tDist * tStep) into tMoved
@@ -384,23 +413,30 @@ end Heroes.TurnToward
 
 -- walking plays the walk clip at the speed the hero really moves (no skating);
 -- standing plays the idle clip
+-- standing: the hero's idle clip. Moving: walk or run, whichever was made for the speed
+-- the hero really moves, played at that speed so the feet don't skate
 on Heroes.Animate pName
-   local tSpeed, tClip, tN, tF, tKey, tE
-   put sHero[pName]["speed"] into tSpeed
-   if abs(tSpeed) > 0.2 then
-      put "walk" into tClip
+   local tSpeed, tWhich, tClip, tN, tKey, tE, tWalk, tRun
+   put abs(sHero[pName]["speed"]) into tSpeed
+   put Heroes.WalkStep(pName, "walk") into tWalk
+   put Heroes.WalkStep(pName, "run") into tRun
+   if tSpeed <= 0.2 then
+      put "idle" into tWhich
+   else if tSpeed > (tWalk + tRun) / 2 then
+      put "run" into tWhich
    else
-      put "idle" into tClip
+      put "walk" into tWhich
    end if
-   if tClip is not sHero[pName]["anim"] then
-      put tClip into sHero[pName]["anim"]
-      if tClip is "walk" then put 1 into sHero[pName]["frame"]
+   put sHero[pName][tWhich] into tClip
+   if tWhich is not sHero[pName]["anim"] then
+      put tWhich into sHero[pName]["anim"]
+      put 1 into sHero[pName]["frame"]
    end if
    put sClip[tClip]["frames"] into tN
-   if tClip is "walk" then
-      add tSpeed / Heroes.WalkStep() * sClip["walk"]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
+   if tWhich is "idle" then
+      add sClip[tClip]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
    else
-      add sClip["idle"]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
+      add sHero[pName]["speed"] / Heroes.WalkStep(pName, tWhich) * sClip[tClip]["fps"] * sStepMS / 1000 to sHero[pName]["frame"]
    end if
    repeat while sHero[pName]["frame"] >= tN + 1
       subtract tN from sHero[pName]["frame"]
@@ -409,7 +445,7 @@ on Heroes.Animate pName
       add tN to sHero[pName]["frame"]
    end repeat
    put sHero[pName]["key"] into tKey
-   Heroes.SetMesh tKey, "Heroes." & tClip & trunc(sHero[pName]["frame"])
+   Heroes.SetMesh tKey, "Heroes." & tClip & "." & trunc(sHero[pName]["frame"])
    SetObjectPosition tKey, sHero[pName]["x"], 0, sHero[pName]["z"]
    put Heroes.Euler(sHero[pName]["yaw"], 0) into tE
    SetObjectRotation tKey, item 1 of tE, item 2 of tE, item 3 of tE
@@ -431,7 +467,7 @@ on Heroes.Camera pSnap
       put tCY into sCamY
       put tCZ into sCamZ
    else
-      put 0.12 into tK
+      put 0.22 into tK
       put sCamX + (tCX - sCamX) * tK into sCamX
       put sCamY + (tCY - sCamY) * tK into sCamY
       put sCamZ + (tCZ - sCamZ) * tK into sCamZ
@@ -462,7 +498,7 @@ on Heroes.ShowHUD
    end if
    HUD.Set "Heroes.Who", "PLAYING " & sActive & "   (TAB: " & tOther & ")", gViewLeft + 20, gViewBottom - 78, 14
    HUD.Set "Heroes.Skills", sHero[sActive]["skills"], gViewLeft + 20, gViewBottom - 56, 11
-   HUD.Set "Heroes.Help", "W S WALK   SHIFT HURRY   A D TURN   FIND THE GOLD BEACON", gViewLeft + 20, gViewBottom - 30, 11
+   HUD.Set "Heroes.Help", "W S WALK   SHIFT RUN   A D TURN   FIND THE GOLD BEACON", gViewLeft + 20, gViewBottom - 30, 11
    if sMsgUntil is a number and sTicks < sMsgUntil then
       HUD.Set "Heroes.Swap", sActive, gViewLeft + 20, gViewTop + 130, 24
    else
