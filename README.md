@@ -53,3 +53,7 @@ demo went back to LIB_GAMES as Amazing Couple; this repo keeps the early history
 
 Git: main holds what has been reviewed; each new episode gets its own branch and is
 merged after review.
+
+## Licence
+
+MIT (see `LICENSE`), Copyright (c) 2026 xAction.
